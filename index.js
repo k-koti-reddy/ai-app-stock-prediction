@@ -1,3 +1,5 @@
+import { dates } from "/utils/dates";
+
 const tickersArr = [];
 
 const generateReportBtn = document.querySelector(".generate-report-btn");
@@ -35,22 +37,26 @@ function renderTickers() {
 const loadingArea = document.querySelector(".loading-panel");
 const apiMessage = document.getElementById("api-message");
 
+/* 
+  Challenge: Update the `fetch` request
+   - Make a request to the Polygon API via your new Worker
+   - Catch and log any errors returned by the Worker
+*/
+
 async function fetchStockData() {
   document.querySelector(".action-panel").style.display = "none";
   loadingArea.style.display = "flex";
   try {
     const stockData = await Promise.all(
       tickersArr.map(async (ticker) => {
-        const url = `https://polygon-api-worker.kotir500.workers.dev/?ticker=${ticker}&startDate=${startDate}&endDate=${endDate}`;
+        const url = `https://polygon-api-worker.kotir500.workers.dev/?ticker=${ticker}&startDate=${dates.startDate}&endDate=${dates.endDate}`;
         const response = await fetch(url);
-        const data = await response.text();
-        const status = await response.status;
-        if (status === 200) {
-          apiMessage.innerText = "Creating report...";
-          return data;
-        } else {
-          loadingArea.innerText = "There was an error fetching stock data.";
+        if (!response.ok) {
+          const errMsg = await response.text();
+          throw new Error("Worker error: " + errMsg);
         }
+        apiMessage.innerText = "Creating report...";
+        return response.text();
       })
     );
     fetchReport(stockData.join(""));
@@ -80,22 +86,21 @@ async function fetchReport(data) {
   ];
 
   try {
-    const url = "https://openai-api-worker.kotir500.workers.dev/";
+    const url = "https://openai-api-worker.guil-9d2.workers.dev";
+
     const response = await fetch(url, {
       method: "POST",
-      body: JSON.stringify(messages),
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify(messages),
     });
-
-    const aiData = await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(`Worker Error: ${aiData.error}`);
+      throw new Error(`Worker Error: ${data.error}`);
     }
-
-    renderReport(aiData.content);
+    renderReport(data.content);
   } catch (err) {
     console.error(err.message);
     loadingArea.innerText = "Unable to access AI. Please refresh and try again";
